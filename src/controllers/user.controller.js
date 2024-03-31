@@ -38,7 +38,6 @@ const registerUser = asyncHandler(async (req, res) => {
   if (existUser) {
     throw new ApiError(409, "user with this email and user name already exist");
   }
-  console.log("req object is :->", req);
   console.log("req.file object :->", req?.files);
   const avatarLocalPath = req.files?.avatar[0]?.path;
 
@@ -199,8 +198,8 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     .json(new ApiResponce(200, req.user, "current user fatch Successfully"));
 });
 const updateUserDetail = asyncHandler(async (req, res) => {
-  const { fullName, email } = req.body;
-  if (!fullName || !email) {
+  const { fullName, email, userName } = req.body;
+  if (!fullName || !email || !userName) {
     throw new ApiError(401, "All fields are required");
   }
   const user = await User.findByIdAndUpdate(
@@ -209,6 +208,7 @@ const updateUserDetail = asyncHandler(async (req, res) => {
       $set: {
         fullName,
         email,
+        userName,
       },
     },
     { new: true }
@@ -221,7 +221,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   const avatarLocalPath = req.file?.path;
   if (!avatarLocalPath) throw new ApiError(401, "Avatar file is missing");
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-  if (avatar.url) throw new ApiError(500, "Error while uploading file");
+  if (!avatar.url) throw new ApiError(500, "Error while uploading file");
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -241,7 +241,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   if (!coverImageLocalPath)
     throw new ApiError(401, "cover Image file is missing");
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-  if (coverImage.url) throw new ApiError(500, "Error while uploading file");
+  if (!coverImage.url) throw new ApiError(500, "Error while uploading file");
   console.log(req.user);
   const user = await User.findByIdAndUpdate(
     req.user._id,
@@ -259,7 +259,9 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 });
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { userName } = req.params;
+  console.log("user name ->", userName);
   if (!userName?.trim()) throw new ApiError(401, "Username is missing");
+  console.log("start aggregate");
   const channel = await User.aggregate([
     {
       $match: {
@@ -292,7 +294,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
         isSubscribed: {
           $cond: {
-            if: { $in: [req.user?._id, "subscribers.subscriber"] },
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
             then: true,
             else: false,
           },
@@ -312,6 +314,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
   ]);
+  console.log("done->", channel);
   if (!channel?.length) throw new ApiError(404, "channel does not exist !!");
   return res
     .status(200)
@@ -343,11 +346,9 @@ const getUserWatchHistory = asyncHandler(async (req, res) => {
               pipeline: [
                 {
                   $project: {
-                    fullName: {
-                      fullName: 1,
-                      userName: 1,
-                      avatar: 1,
-                    },
+                    fullName: 1,
+                    userName: 1,
+                    avatar: 1,
                   },
                 },
               ],
@@ -367,10 +368,7 @@ const getUserWatchHistory = asyncHandler(async (req, res) => {
   console.log("user with watch History :->", user);
   return res
     .status(200)
-    .json(
-      new ApiResponce(200, user[0].getUserWatchHistory),
-      "Watch History fatch Successfully"
-    );
+    .json(new ApiResponce(200, user[0], "Watch History fatch Successfully"));
 });
 
 export {
