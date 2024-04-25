@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponce } from "../utils/ApiResponce.js";
-import mongoose from "mongoose";
+import mongoose, { connect } from "mongoose";
 import { Subscription } from "../models/subscription.model.js";
 import { User } from "../models/user.model.js";
 
@@ -13,26 +13,46 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   const SubscribedChannels = await Subscription.aggregate([
     {
       $match: {
-        subscriber: new mongoose.Schema.Types.ObjectId(channelId),
+        subscriber: new mongoose.Types.ObjectId(channelId),
       },
     },
     {
       $lookup: {
         from: "users",
-        localField: "subscriber",
+        localField: "channel",
         foreignField: "_id",
         as: "subscribed",
-        pipeline: {
-          fullName: 1,
-          userName: 1,
-          avatar: 1,
-        },
+        pipeline: [
+          {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "subscribers",
+            },
+          },
+          {
+            $addFields: {
+              subscribersCount: {
+                $size: "$subscribers",
+              },
+            },
+          },
+          {
+            $project: {
+              fullName: 1,
+              userName: 1,
+              avatar: 1,
+              subscribersCount: 1,
+            },
+          },
+        ],
       },
     },
     {
       $addFields: {
         subscribed: {
-          $first: "subscribed",
+          $first: "$subscribed",
         },
       },
     },
@@ -49,32 +69,53 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
 });
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   const { subscriberId } = req.params;
+  console.log(subscriberId);
   if (!subscriberId) throw new ApiError(400, "subscriber id is requred");
   const isChannel = await User.findById(subscriberId);
   if (!isChannel) throw new ApiError(400, "subscriber id is invalid");
   const Subscribers = await Subscription.aggregate([
     {
       $match: {
-        channel: new mongoose.Schema.Types.ObjectId(subscriberId),
+        channel: new mongoose.Types.ObjectId(subscriberId),
       },
     },
     {
       $lookup: {
         from: "users",
-        localField: "channel",
+        localField: "subscriber",
         foreignField: "_id",
-        as: "subscriber",
-        pipeline: {
-          fullName: 1,
-          userName: 1,
-          avatar: 1,
-        },
+        as: "subscribers",
+        pipeline: [
+          {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "subscribers",
+            },
+          },
+          {
+            $addFields: {
+              subscribersCount: {
+                $size: "$subscribers",
+              },
+            },
+          },
+          {
+            $project: {
+              fullName: 1,
+              userName: 1,
+              avatar: 1,
+              subscribersCount: 1,
+            },
+          },
+        ],
       },
     },
     {
       $addFields: {
-        subscriber: {
-          $first: "subscriber",
+        subscribers: {
+          $first: "$subscribers",
         },
       },
     },
@@ -85,7 +126,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
       new ApiResponce(200, Subscribers, "Subscriber are fetch successfully")
     );
 });
-const toggleSubscription = asyncHandler(async (req) => {
+const toggleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
   const subscriberId = req.user._id;
   if (!channelId) throw new ApiError(400, "channel id is requred");
@@ -95,12 +136,13 @@ const toggleSubscription = asyncHandler(async (req) => {
     {
       $match: {
         $and: [
-          { channel: new mongoose.Schema.ObjectId(channelId) },
-          { subscriber: new mongoose.Schema.ObjectId(subscriberId) },
+          { channel: new mongoose.Types.ObjectId(channelId) },
+          { subscriber: new mongoose.Types.ObjectId(subscriberId) },
         ],
       },
     },
   ]);
+  console.log(isSubscribed);
   if (!isSubscribed?.length) {
     const addSubcription = await Subscription.create({
       channel: channelId,

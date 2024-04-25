@@ -10,7 +10,8 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   const likeVideos = await Like.aggregate([
     {
       $match: {
-        $and: [{ likeBy: req.user._id }, { video: !null }],
+        likeBy: new mongoose.Types.ObjectId(req.user._id),
+        video: { $exists: true },
       },
     },
     {
@@ -34,17 +35,24 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                     avatar: 1,
                   },
                 },
-                {
-                  $addFields: {
-                    createdBy: {
-                      $first: "$createdBy",
-                    },
-                  },
-                },
               ],
             },
           },
+          {
+            $addFields: {
+              createdBy: {
+                $first: "$createdBy",
+              },
+            },
+          },
         ],
+      },
+    },
+    {
+      $addFields: {
+        likeVideos: {
+          $first: "$likeVideos",
+        },
       },
     },
   ]);
@@ -53,7 +61,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     .json(new ApiResponce(200, likeVideos, "like videos fetch successfully"));
 });
 const toggleVideoLike = asyncHandler(async (req, res) => {
-  const { videoId } = res.params;
+  const { videoId } = req.params;
   if (!videoId) throw new ApiError(400, "video id is requred");
   const isVideo = await Video.findById(videoId);
   if (!isVideo) throw new ApiError(400, "video id is invalid");
@@ -85,7 +93,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     .json(new ApiResponce(200, {}, "user not like this video"));
 });
 const toggleCommentLike = asyncHandler(async (req, res) => {
-  const { commentId } = res.params;
+  const { commentId } = req.params;
   if (!commentId) throw new ApiError(400, "comment id is requred");
   const isComment = await Comment.findById(commentId);
   if (!isComment) throw new ApiError(400, "comment id is invalid");
@@ -105,7 +113,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     if (!addLike) throw new ApiError(500, "like toggle failed");
     return res
       .status(200)
-      .json(new ApiResponce(200, {}, "user like this video"));
+      .json(new ApiResponce(200, {}, "user like this comment"));
   }
   console.log("like", like);
   const deleteLike = await Like.findByIdAndDelete(like[0]?._id);
@@ -115,7 +123,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     .json(new ApiResponce(200, {}, "user not like this comment"));
 });
 const toggleTweetLike = asyncHandler(async (req, res) => {
-  const { tweetId } = res.params;
+  const { tweetId } = req.params;
   if (!tweetId) throw new ApiError(400, "tweet id is requred");
   const isTweet = await Tweet.findById(tweetId);
   if (!isTweet) throw new ApiError(400, "tweet id is invalid");

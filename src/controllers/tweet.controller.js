@@ -5,10 +5,20 @@ import { Tweet } from "../models/tweet.model.js";
 import mongoose from "mongoose";
 
 const createTweet = asyncHandler(async (req, res) => {
-  //get userid from verifyjwt and content
-  const { content } = res.body;
+  const { content } = req.body;
   const userId = req.user._id;
+  console.log(content);
   if (!content) throw new ApiError(401, "content is required");
+  const isTweet = await Tweet.aggregate([
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+        content: content,
+      },
+    },
+  ]);
+  if (isTweet?.length) throw new ApiError(500, "tweet already Exist");
+
   const tweet = await Tweet.create({
     owner: userId,
     content,
@@ -38,79 +48,60 @@ const createTweet = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "tweet",
+        as: "like",
+      },
+    },
+    {
       $addFields: {
         userDetail: {
-          $first: "userDetail",
+          $first: "$userDetail",
+        },
+        isLikeByUser: {
+          $cond: {
+            if: { $in: [req.user?._id, "$like.likeBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        like: {
+          $size: "$like",
         },
       },
     },
   ]);
-  if (!sendComent?.length)
+  if (!sendTweet?.length)
     throw new ApiError(500, "tweet not created successfully");
   return res
     .status(200)
     .json(new ApiResponce(200, sendTweet[0], "Tweet created Successfully"));
 });
 
-const getUserTweets = asyncHandler(async (req, res) => {
-  const userId = req.params;
-  if (!userId) throw new ApiError(401, "user id is not present");
-  const sendTweet = await Tweet.aggregate([
-    {
-      $match: {
-        owner: new mongoose.Types.ObjectId(req.user._id),
-      },
-    },
-    {
-      $lookup: {
-        from: "users",
-        localField: "owner",
-        foreignField: "_id",
-        as: "userDetail",
-        pipeline: [
-          {
-            $project: {
-              fullName: 1,
-              userName: 1,
-              avatar: 1,
-            },
-          },
-        ],
-      },
-    },
-    {
-      $addFields: {
-        userDetail: {
-          $first: "userDetail",
-        },
-      },
-    },
-  ]);
-  return res
-    .status(200)
-    .json(new ApiResponce(200, sendTweet, "get user tweet Successfully"));
-});
 const deleteTweet = asyncHandler(async (req, res) => {
-  const { tweetId } = res.params;
+  const { tweetId } = req.params;
   if (!tweetId) throw new ApiError(402, "Tweet id is required");
   const istweet = await Tweet.findById(tweetId);
   if (!istweet) throw new ApiError(401, "tweet id is invalid");
-  if (istweet.owner !== req.user._id)
+  if (istweet.owner.toString() !== req.user._id.toString())
     throw new ApiError(405, "User is not Authenticated to delete tweet");
   const tweet = await Tweet.findByIdAndDelete(tweetId);
   return res
     .status(200)
-    .json(new ApiResponce(200, {}, "Tweet deleted Successfully"));
+    .json(new ApiResponce(200, { tweet }, "Tweet deleted Successfully"));
 });
 const updateTweet = asyncHandler(async (req, res) => {
-  const { tweetId } = res.params;
-  const { content } = res.body;
+  const { tweetId } = req.params;
+  const { content } = req.body;
 
   if (!tweetId) throw new ApiError(402, "Tweet id is required");
   const istweet = await Tweet.findById(tweetId);
   if (!istweet) throw new ApiError(401, "tweet id is invalid");
-  if (istweet.owner !== req.user._id)
-    throw new ApiError(405, "User is not Authenticated to delete tweet");
+
+  if (istweet.owner.toString() !== req.user._id.toString())
+    throw new ApiError(405, "User is not Authenticated to update tweet");
 
   const tweet = await Tweet.findByIdAndUpdate(
     tweetId,
@@ -125,7 +116,7 @@ const updateTweet = asyncHandler(async (req, res) => {
   const sendTweet = await Tweet.aggregate([
     {
       $match: {
-        _id: new mongoose.Types.ObjectId(tweetId),
+        _id: new mongoose.Types.ObjectId(tweet._id),
       },
     },
     {
@@ -146,18 +137,95 @@ const updateTweet = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "tweet",
+        as: "like",
+      },
+    },
+    {
       $addFields: {
         userDetail: {
-          $first: "userDetail",
+          $first: "$userDetail",
+        },
+        isLikeByUser: {
+          $cond: {
+            if: { $in: [req.user?._id, "$like.likeBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        like: {
+          $size: "$like",
         },
       },
     },
   ]);
-  if (!sendComent?.length) throw new ApiError(500, "tweet not  successfully");
+  if (!sendTweet?.length) throw new ApiError(500, "tweet not  successfully");
 
   return res
     .status(200)
-    .json(new ApiResponce(200, sendTweet, "Tweet updated Successfully"));
+    .json(new ApiResponce(200, sendTweet[0], "Tweet updated Successfully"));
+});
+const getChannelTweets = asyncHandler(async (req, res) => {
+  const { channelId } = req.params;
+  console.log("chanel Id", channelId);
+  if (!channelId) throw new ApiError(401, "user id is not present");
+  const sendTweet = await Tweet.aggregate([
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(channelId),
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "userDetail",
+        pipeline: [
+          {
+            $project: {
+              fullName: 1,
+              userName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "tweet",
+        as: "like",
+      },
+    },
+    {
+      $addFields: {
+        userDetail: {
+          $first: "$userDetail",
+        },
+        isLikeByUser: {
+          $cond: {
+            if: { $in: [req.user?._id, "$like.likeBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        like: {
+          $size: "$like",
+        },
+      },
+    },
+  ]);
+  if (!sendTweet.length)
+    throw new ApiError(400, "channel id is invalid or user not have tweets");
+  return res
+    .status(200)
+    .json(new ApiResponce(200, sendTweet, "get channel Tweet successfully"));
 });
 
-export { createTweet, deleteTweet, getUserTweets, updateTweet };
+export { createTweet, deleteTweet, updateTweet, getChannelTweets };

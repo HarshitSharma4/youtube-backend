@@ -3,7 +3,20 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Video } from "../models/video.model.js";
 
 const getChannelStats = asyncHandler(async (req, res) => {
-  //     TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
+  //     TODO: Get the channel stats like , total subscribers, total videos, total likes etc.
+    const videoLikeAndView = await Video.aggregate([
+      {
+        $match: {
+          owner: new mongoose.Schema.Types.ObjectId(req.user._id),
+        },
+        
+      },
+      {
+        $addFields: {
+          totalViews: {$sum:"$views"}
+        }
+      }
+    ])
   return res.status(200);
 });
 const getChannelVideos = asyncHandler(async (req, res) => {

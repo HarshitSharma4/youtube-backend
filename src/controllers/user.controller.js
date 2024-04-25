@@ -193,12 +193,66 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   }
 });
 const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        userName: req.user.userName,
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        suscribersCount: {
+          $size: "$subscribers",
+        },
+        subscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullName: 1,
+        userName: 1,
+        suscribersCount: 1,
+        subscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      },
+    },
+  ]);
+  if (!user?.length) throw new ApiError(404, "channel does not exist !!");
   return res
     .status(200)
-    .json(new ApiResponce(200, req.user, "current user fatch Successfully"));
+    .json(new ApiResponce(200, user[0], "current user fatch Successfully"));
 });
 const updateUserDetail = asyncHandler(async (req, res) => {
   const { fullName, email, userName } = req.body;
+  console.log(fullName);
   if (!fullName || !email || !userName) {
     throw new ApiError(401, "All fields are required");
   }
@@ -270,7 +324,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "subcriptions",
+        from: "subscriptions",
         localField: "_id",
         foreignField: "channel",
         as: "subscribers",
@@ -278,7 +332,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "subcriptions",
+        from: "subscriptions",
         localField: "_id",
         foreignField: "subscriber",
         as: "subscribedTo",

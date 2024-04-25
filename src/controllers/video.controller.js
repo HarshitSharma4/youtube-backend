@@ -73,27 +73,32 @@ const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   if (!videoId) throw new ApiError(400, "video id is required");
   console.log(req.user._id);
-  const watchHistory = req.user.watchHistory;
-  let addWatchLater;
-  if (watchHistory[watchHistory.length - 1] !== videoId) {
-    addWatchLater = await User.findByIdAndUpdate(req.user._id, {
-      $push: {
-        watchHistory: videoId,
+  //remove videos
+  await User.findByIdAndUpdate(req.user._id, {
+    $pull: { arrayField: videoId },
+  });
+  //addvideos
+  await User.findByIdAndUpdate(req.user._id, {
+    $push: {
+      watchHistory: {
+        $each: [videoId],
+        $position: 1,
       },
-    });
-  }
+    },
+  });
+
   console.log(videoId);
+  console.log(
+    await Video.findByIdAndUpdate(videoId, {
+      $inc: {
+        views: 1,
+      },
+    })
+  );
   const video = await Video.aggregate([
     {
       $match: {
         _id: new mongoose.Types.ObjectId(videoId),
-      },
-    },
-    {
-      $set: {
-        views: {
-          $sum: 1,
-        },
       },
     },
     {
@@ -104,13 +109,63 @@ const getVideoById = asyncHandler(async (req, res) => {
         as: "createdBy",
         pipeline: [
           {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "subscribers",
+            },
+          },
+          {
+            $addFields: {
+              suscribersCount: {
+                $size: "$subscribers",
+              },
+
+              isSubscribed: {
+                $cond: {
+                  if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                  then: true,
+                  else: false,
+                },
+              },
+            },
+          },
+          {
             $project: {
               fullName: 1,
               userName: 1,
+              suscribersCount: 1,
+              isSubscribed: 1,
               avatar: 1,
             },
           },
         ],
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "like",
+      },
+    },
+    {
+      $addFields: {
+        isLikeByUser: {
+          $cond: {
+            if: { $in: [req?.user?._id, "$like.likeBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        like: {
+          $size: "$like",
+        },
+        createdBy: {
+          $first: "$createdBy",
+        },
       },
     },
   ]);
@@ -174,6 +229,13 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
         ],
       },
     },
+    {
+      $addFields: {
+        createdBy: {
+          $first: "$createdBy",
+        },
+      },
+    },
   ]);
   if (!video.length) throw new ApiError(401, "video id is invalid");
 
@@ -224,7 +286,84 @@ const updateThumbnail = asyncHandler(async (req, res) => {
       new ApiResponce(200, changeThumbnail, "thumbnail is change successfully")
     );
 });
+const getChannelVideos = asyncHandler(async (req, res) => {
+  const { channelId } = req.params;
+  if (!channelId) throw new ApiError(400, "channel id is required");
+  const channel = await User.findById(channelId);
+  if (!channel) throw new ApiError(401, "Channel does not exist");
+  let videos;
+  if (channelId === req.user._id)
+    videos = await Video.aggregate([
+      {
+        $match: {
+          owner: new mongoose.Types.ObjectId(channelId),
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "createdBy",
+          pipeline: [
+            {
+              $project: {
+                fullName: 1,
+                userName: 1,
+                avatar: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          createdBy: {
+            $first: "$createdBy",
+          },
+        },
+      },
+    ]);
+  else
+    videos = await Video.aggregate([
+      {
+        $match: {
+          owner: new mongoose.Types.ObjectId(channelId),
+          isPublished: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "createdBy",
+          pipeline: [
+            {
+              $project: {
+                fullName: 1,
+                userName: 1,
+                avatar: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          createdBy: {
+            $first: "$createdBy",
+          },
+        },
+      },
+    ]);
+  console.log(videos);
+  if (!videos.length) throw new ApiError(500, "videos is missing");
 
+  return res
+    .status(200)
+    .json(new ApiResponce(200, videos, "channel videos fetch successfully"));
+});
 export {
   deleteVideo,
   getAllVideos,
@@ -232,4 +371,5 @@ export {
   publishaVideo,
   togglePublishStatus,
   updateThumbnail,
+  getChannelVideos,
 };

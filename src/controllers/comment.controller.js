@@ -38,9 +38,27 @@ const addComment = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "comment",
+        as: "like",
+      },
+    },
+    {
       $addFields: {
         userDetail: {
-          $first: "userDetail",
+          $first: "$userDetail",
+        },
+        isLikeByUser: {
+          $cond: {
+            if: { $in: [req.user?._id, "$like.likeBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        like: {
+          $size: "$like",
         },
       },
     },
@@ -57,7 +75,7 @@ const deleteComment = asyncHandler(async (req, res) => {
   if (!commentId) throw new ApiError(400, "comment id is required");
   const isComment = await Comment.findById(commentId);
   if (!isComment) throw new ApiError(401, "comment id is invalid");
-  if (isComment.owner !== req.user._id)
+  if (isComment.owner.toString() !== req.user._id.toString())
     throw new ApiError(402, "user is not Authenticated to delete this comment");
   const comment = await Comment.findByIdAndDelete(commentId);
   console.log(comment);
@@ -81,13 +99,40 @@ const getVideoComments = asyncHandler(async (req, res) => {
         localField: "owner",
         foreignField: "_id",
         as: "userDetail",
+        pipeline: [
+          {
+            $project: {
+              fullName: 1,
+              userName: 1,
+              avatar: 1,
+            },
+          },
+        ],
       },
     },
     {
-      $project: {
-        content: 1,
-        userDetail: 1,
-        video: 1,
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "comment",
+        as: "like",
+      },
+    },
+    {
+      $addFields: {
+        userDetail: {
+          $first: "$userDetail",
+        },
+        isLikeByUser: {
+          $cond: {
+            if: { $in: [req.user?._id, "$like.likeBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        like: {
+          $size: "$like",
+        },
       },
     },
   ]);
@@ -97,8 +142,14 @@ const getVideoComments = asyncHandler(async (req, res) => {
 });
 const updateComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
-  const content = req.body;
+  const { content } = req.body;
+  console.log(content);
   if (!commentId) throw new ApiError(400, "comment id is required");
+  const isComment = await Comment.findById(commentId);
+  if (!isComment) throw new ApiError(401, "comment id is invalid");
+  if (isComment.owner.toString() !== req.user._id.toString())
+    throw new ApiError(402, "user is not Authenticated to delete this comment");
+  console.log("checking done");
   const updateComment = await Comment.findByIdAndUpdate(commentId, {
     $set: {
       content,
@@ -116,13 +167,40 @@ const updateComment = asyncHandler(async (req, res) => {
         localField: "owner",
         foreignField: "_id",
         as: "userDetail",
+        pipeline: [
+          {
+            $project: {
+              fullName: 1,
+              userName: 1,
+              avatar: 1,
+            },
+          },
+        ],
       },
     },
     {
-      $project: {
-        content: 1,
-        userDetail: 1,
-        video: 1,
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "comment",
+        as: "like",
+      },
+    },
+    {
+      $addFields: {
+        userDetail: {
+          $first: "$userDetail",
+        },
+        isLikeByUser: {
+          $cond: {
+            if: { $in: [req.user?._id, "$like.likeBy"] },
+            then: true,
+            else: false,
+          },
+        },
+        like: {
+          $size: "$like",
+        },
       },
     },
   ]);
