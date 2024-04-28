@@ -150,6 +150,9 @@ const updateComment = asyncHandler(async (req, res) => {
   if (isComment.owner.toString() !== req.user._id.toString())
     throw new ApiError(402, "user is not Authenticated to delete this comment");
   console.log("checking done");
+  if (isComment.content === content)
+    throw new ApiError(403, "comment is same as previous");
+  console.log(content);
   const updateComment = await Comment.findByIdAndUpdate(commentId, {
     $set: {
       content,
@@ -209,6 +212,6 @@ const updateComment = asyncHandler(async (req, res) => {
   console.log(sendComent);
   return res
     .status(200)
-    .json(new ApiResponce(200, sendComent[0], "comment created successfully"));
+    .json(new ApiResponce(200, sendComent[0], "comment updated successfully"));
 });
 export { addComment, deleteComment, getVideoComments, updateComment };
