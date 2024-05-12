@@ -73,9 +73,26 @@ const addComment = asyncHandler(async (req, res) => {
 const deleteComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
   if (!commentId) throw new ApiError(400, "comment id is required");
-  const isComment = await Comment.findById(commentId);
+  const isComment = await Comment.aggregate([{
+    $match:{
+      _id: new mongoose.Types.ObjectId(commentId),
+    }
+  },{
+        $lookup:{
+          from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "commentVideo",
+        }
+  },{
+    $addFields: {
+      commentVideo: {
+        $first: "$commentVideo",
+      },
+    }
+  }]);
   if (!isComment) throw new ApiError(401, "comment id is invalid");
-  if (isComment.owner.toString() !== req.user._id.toString())
+  if (isComment.owner.toString() !== req.user._id.toString() || isComment.commentVideo.owner.toString() !==  req.user._id.toString())
     throw new ApiError(402, "user is not Authenticated to delete this comment");
   const comment = await Comment.findByIdAndDelete(commentId);
   console.log(comment);

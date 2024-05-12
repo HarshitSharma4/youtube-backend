@@ -144,11 +144,11 @@ const toggleSubscription = asyncHandler(async (req, res) => {
   ]);
   console.log(isSubscribed);
   if (!isSubscribed?.length) {
-    const addSubcription = await Subscription.create({
+    const addSubscription = await Subscription.create({
       channel: channelId,
       subscriber: subscriberId,
     });
-    if (!addSubcription)
+    if (!addSubscription)
       throw new ApiError(500, "subscription is not toggle successfully");
     return res
       .status(200)

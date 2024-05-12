@@ -13,12 +13,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   if (playlist.owner.toString() !== req.user._id.toString())
     throw new ApiError(402, "User is not authorized");
   console.log(playlist);
-  console.log(
-    playlist.videos.some((item) => {
-      console.log(item.toString(), videoId.toString());
-      return item.toString() === videoId.toString();
-    })
-  );
+  
   if (playlist.videos.some((item) => item.toString() === videoId.toString()))
     throw new ApiError(400, "video already present in playlist");
   const addvideo = await Playlist.findByIdAndUpdate(playlistId, {

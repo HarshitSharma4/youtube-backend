@@ -32,10 +32,17 @@ const deleteVideo = asyncHandler(async (req, res) => {
     .json(new ApiResponce(200, {}, "video deleted successfully"));
 });
 const getAllVideos = asyncHandler(async (req, res) => {
-  const videos = await Video.aggregate([
+  let { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+
+  page = parseInt(page);
+  limit = parseInt(limit);
+  console.log(query);
+  const aggregationPipeline = [
     {
       $match: {
         isPublished: true,
+        ...(query && { $text: { $search: query } }),
+        ...(userId && { owner: new mongoose.Types.ObjectId(userId) }),
       },
     },
     {
@@ -62,12 +69,29 @@ const getAllVideos = asyncHandler(async (req, res) => {
         },
       },
     },
-  ]);
+  ];
+
+  if (sortBy && sortType) {
+    const sortField = $${sortBy};
+    const sortOrder = sortType === "asc" ? 1 : -1;
+    aggregationPipeline.push({
+      $sort: { [sortField]: sortOrder },
+    });
+  }
+
+  const options = {
+    page,
+    limit,
+  };
+  const getVideoAggregate = Video.aggregate(aggregationPipeline);
+  const videos = await Video.aggregatePaginate(getVideoAggregate, options);
   console.log(videos);
-  if (!videos.length) throw new ApiError(500, "videos is missing");
+  if (!videos.docs.length) {
+    throw new ApiError(500, "No videos found");
+  }
   return res
-    .status(200)
-    .json(new ApiResponce(200, videos, "video is fetch successfully"));
+  .status(200)
+  .json(new ApiResponce(200, videos, "videos fetched Successfully"));
 });
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
@@ -75,7 +99,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   console.log(req.user._id);
   //remove videos
   await User.findByIdAndUpdate(req.user._id, {
-    $pull: { arrayField: videoId },
+    $pull: { watchHistory: videoId },
   });
   //addvideos
   await User.findByIdAndUpdate(req.user._id, {
@@ -286,84 +310,6 @@ const updateThumbnail = asyncHandler(async (req, res) => {
       new ApiResponce(200, changeThumbnail, "thumbnail is change successfully")
     );
 });
-const getChannelVideos = asyncHandler(async (req, res) => {
-  const { channelId } = req.params;
-  if (!channelId) throw new ApiError(400, "channel id is required");
-  const channel = await User.findById(channelId);
-  if (!channel) throw new ApiError(401, "Channel does not exist");
-  let videos;
-  if (channelId === req.user._id)
-    videos = await Video.aggregate([
-      {
-        $match: {
-          owner: new mongoose.Types.ObjectId(channelId),
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "owner",
-          foreignField: "_id",
-          as: "createdBy",
-          pipeline: [
-            {
-              $project: {
-                fullName: 1,
-                userName: 1,
-                avatar: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $addFields: {
-          createdBy: {
-            $first: "$createdBy",
-          },
-        },
-      },
-    ]);
-  else
-    videos = await Video.aggregate([
-      {
-        $match: {
-          owner: new mongoose.Types.ObjectId(channelId),
-          isPublished: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "owner",
-          foreignField: "_id",
-          as: "createdBy",
-          pipeline: [
-            {
-              $project: {
-                fullName: 1,
-                userName: 1,
-                avatar: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $addFields: {
-          createdBy: {
-            $first: "$createdBy",
-          },
-        },
-      },
-    ]);
-  console.log(videos);
-  if (!videos.length) throw new ApiError(500, "videos is missing");
-
-  return res
-    .status(200)
-    .json(new ApiResponce(200, videos, "channel videos fetch successfully"));
-});
 export {
   deleteVideo,
   getAllVideos,
@@ -371,5 +317,4 @@ export {
   publishaVideo,
   togglePublishStatus,
   updateThumbnail,
-  getChannelVideos,
 };

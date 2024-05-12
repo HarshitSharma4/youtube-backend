@@ -26,10 +26,7 @@ const uploadOnCloudinary = async (localFilePath) => {
 
 const deleteOnCloudinary = async (url) => {
   try {
-    // const publicId = cloudinary.url(url, { type: "fetch" }).public_id;
-    // console.log(publicId);
     let publicId = await extractPublicId(url);
-    console.log(publicId);
     if (!publicId) {
       throw new Error("Invalid Cloudinary URL");
     }

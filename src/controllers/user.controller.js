@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponce } from "../utils/ApiResponce.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -276,6 +276,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   if (!avatarLocalPath) throw new ApiError(401, "Avatar file is missing");
   const avatar = await uploadOnCloudinary(avatarLocalPath);
   if (!avatar.url) throw new ApiError(500, "Error while uploading file");
+  await deleteOnCloudinary(req.user?.avatar);
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -297,8 +298,9 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
   if (!coverImage.url) throw new ApiError(500, "Error while uploading file");
   console.log(req.user);
+  await deleteOnCloudinary(req.user?.coverImage);
   const user = await User.findByIdAndUpdate(
-    req.user._id,
+    req.user?._id,
     {
       $set: {
         coverImage: coverImage.url,
