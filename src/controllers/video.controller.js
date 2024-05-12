@@ -72,7 +72,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   ];
 
   if (sortBy && sortType) {
-    const sortField = $${sortBy};
+    const sortField = `${sortBy}`;
     const sortOrder = sortType === "asc" ? 1 : -1;
     aggregationPipeline.push({
       $sort: { [sortField]: sortOrder },

@@ -1,4 +1,3 @@
-import Express from "express";
 import dotenv from "dotenv";
 import connectDb from "./db/index.js";
 import { app } from "./app.js";
@@ -11,7 +10,7 @@ app.on("error", (error) => {
   console.log("ERR: ", error);
   throw error;
 });
-app.listen(process.env.Port, () => {
+app.listen(process.env.PORT, () => {
   console.log(`App is listen on port${process.env.Port}`);
 });
 
