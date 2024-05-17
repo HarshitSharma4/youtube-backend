@@ -11,7 +11,7 @@ app.on("error", (error) => {
   throw error;
 });
 app.listen(process.env.PORT, () => {
-  console.log(`App is listen on port${process.env.Port}`);
+  console.log(`App is listen on port${process.env.PORT}`);
 });
 
 /*
