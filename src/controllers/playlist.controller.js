@@ -13,7 +13,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   if (playlist.owner.toString() !== req.user._id.toString())
     throw new ApiError(402, "User is not authorized");
   console.log(playlist);
-  
+
   if (playlist.videos.some((item) => item.toString() === videoId.toString()))
     throw new ApiError(400, "video already present in playlist");
   const addvideo = await Playlist.findByIdAndUpdate(playlistId, {
@@ -59,9 +59,8 @@ const deletePlaylist = asyncHandler(async (req, res) => {
   if (!playlist) throw new ApiError(401, "playlist id is not valid");
   if (playlist.owner.toString() !== req.user._id.toString())
     throw new ApiError(402, "User is not authorized");
-  const deletevideo = await Playlist.findByIdAndDelete(playlistId);
-  console.log("delete videos", addVideo);
-  if (!addvideo) throw new ApiError(500, "playlist delete failed");
+  const deleteP = await Playlist.findByIdAndDelete(playlistId);
+  if (!deleteP) throw new ApiError(500, "playlist delete failed");
   res
     .status(200)
     .json(new ApiResponce(500, {}, "delete playlist Successfully"));
@@ -244,12 +243,18 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   if (!playlistId) throw new ApiError(400, "playlist id is required");
   const playlist = await Playlist.findById(playlistId);
   if (!playlist) throw new ApiError(401, "playlist id is not valid");
+  if (!(playlist.name !== name || playlist.discription !== discription))
+    throw new ApiError(401, "name and discription is same as before");
   if (playlist.owner.toString() !== req.user._id.toString())
     throw new ApiError(402, "User is not authorized");
-  const update = await Playlist.findByIdAndUpdate(playlistId, {
-    name,
-    discription,
-  });
+  const update = await Playlist.findByIdAndUpdate(
+    playlistId,
+    {
+      name,
+      discription,
+    },
+    { new: true }
+  );
   if (!update) throw new ApiError(500, "playlist is not updated");
   return res
     .status(200)
