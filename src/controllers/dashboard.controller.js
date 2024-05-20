@@ -61,43 +61,56 @@ const getChannelStats = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponce(200, stats[0], "stats fetch successfully"));
 });
-const getChannelVideos = asyncHandler(async (req, res) => {  
-    const videos = await Video.aggregate([
-        {
-          $match: {
-            owner: new mongoose.Types.ObjectId(req.user._id),
-          },
+const getChannelVideos = asyncHandler(async (req, res) => {
+  let { page = 1, limit = 10, query, sortBy, sortType } = req.query;
+
+  page = parseInt(page);
+  limit = parseInt(limit);
+  console.log(query);
+  const aggregationPipeline = [
+    {
+      $match: {
+        ...(query && { $text: { $search: query } }),
+        owner: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "likes",
+      },
+    },
+    {
+      $addFields: {
+        likes: {
+          $size: "$likes",
         },
-        {
-          $lookup: {
-            from: "users",
-            localField: "owner",
-            foreignField: "_id",
-            as: "createdBy",
-            pipeline: [
-              {
-                $project: {
-                  fullName: 1,
-                  userName: 1,
-                  avatar: 1,
-                },
-              },
-            ],
-          },
-        },
-        {
-          $addFields: {
-            createdBy: {
-              $first: "$createdBy",
-            },
-          },
-        },
-      ]);
-    console.log(videos);
-    if (!videos.length) throw new ApiError(500, "videos is missing");
-  
-    return res
-      .status(200)
-      .json(new ApiResponce(200, videos, "channel videos fetch successfully"));
-  });
+      },
+    },
+  ];
+
+  if (sortBy && sortType) {
+    const sortField = `${sortBy}`;
+    const sortOrder = sortType === "asc" ? 1 : -1;
+    aggregationPipeline.push({
+      $sort: { [sortField]: sortOrder },
+    });
+  }
+
+  const options = {
+    page,
+    limit,
+  };
+  const getVideoAggregate = Video.aggregate(aggregationPipeline);
+  const videos = await Video.aggregatePaginate(getVideoAggregate, options);
+  console.log(videos);
+  if (!videos.docs.length) {
+    throw new ApiError(500, "No videos found");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponce(200, videos, "videos fetched Successfully"));
+});
 export { getChannelStats, getChannelVideos };
