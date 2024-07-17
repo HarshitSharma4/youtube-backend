@@ -28,11 +28,11 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     .json(new ApiResponce(200, {}, "video added to playlist Successfully"));
 });
 const createPlaylist = asyncHandler(async (req, res) => {
-  const { name, discription } = req.body;
-  console.log(name, discription);
+  const { name, description } = req.body;
+  console.log(name, description);
   const owner = req.user._id;
-  if (!name || !discription)
-    throw new ApiError(400, "name and discription is required");
+  if (!name || !description)
+    throw new ApiError(400, "name and description is required");
   const isPlaylist = await Playlist.aggregate([
     {
       $match: {
@@ -44,7 +44,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
   if (isPlaylist?.length) throw new ApiError(401, "playlist already exist");
   const playlist = await Playlist.create({
     name,
-    discription,
+    description,
     owner,
   });
   if (!playlist) throw new ApiError(500, "Error while creating playlist ");
@@ -236,22 +236,22 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     .json(new ApiResponce(200, {}, "video removed to playlist Successfully"));
 });
 const updatePlaylist = asyncHandler(async (req, res) => {
-  const { name, discription } = req.body;
+  const { name, description } = req.body;
   const { playlistId } = req.params;
-  if (!name || !discription)
-    throw new ApiError(400, "name and discription is required");
+  if (!name || !description)
+    throw new ApiError(400, "name and description is required");
   if (!playlistId) throw new ApiError(400, "playlist id is required");
   const playlist = await Playlist.findById(playlistId);
   if (!playlist) throw new ApiError(401, "playlist id is not valid");
-  if (!(playlist.name !== name || playlist.discription !== discription))
-    throw new ApiError(401, "name and discription is same as before");
+  if (!(playlist.name !== name || playlist.description !== description))
+    throw new ApiError(401, "name and description is same as before");
   if (playlist.owner.toString() !== req.user._id.toString())
     throw new ApiError(402, "User is not authorized");
   const update = await Playlist.findByIdAndUpdate(
     playlistId,
     {
       name,
-      discription,
+      description,
     },
     { new: true }
   );

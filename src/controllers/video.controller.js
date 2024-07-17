@@ -106,7 +106,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     $push: {
       watchHistory: {
         $each: [videoId],
-        $position: 1,
+        $position: 0,
       },
     },
   });
@@ -291,10 +291,9 @@ const updateThumbnail = asyncHandler(async (req, res) => {
   if (!thumbnailLocalPath) throw new ApiError(401, "Thumbnail file is missing");
 
   const isVideo = await checkVideoAuth(videoId, req.user._id);
-  const thumbnail = await uploadOnCloudinary(avatarLocalPath);
-  if (!thumbnail.url) throw new ApiError(500, "Error while uploading file");
-  await deleteOnCloudinary(isVideo.thumbnail);
-  const changeThumbnail = await Video.findByIdAndUpdate(
+ 
+ 
+  const delailsUpdated = await Video.findByIdAndUpdate(
     videoId,
     {
       $set: {
