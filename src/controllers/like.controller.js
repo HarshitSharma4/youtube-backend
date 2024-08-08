@@ -7,7 +7,12 @@ import { Video } from "../models/video.model.js";
 import { Comment } from "../models/comment.model.js";
 import { Tweet } from "../models/tweet.model.js";
 const getLikedVideos = asyncHandler(async (req, res) => {
-  const likeVideos = await Like.aggregate([
+  let { page = 1, limit = 10} = req.query;
+  const options = {
+    page,
+    limit,
+  }
+  const likeVideos =  Like.aggregate([
     {
       $match: {
         likeBy: new mongoose.Types.ObjectId(req.user._id),
@@ -56,9 +61,11 @@ const getLikedVideos = asyncHandler(async (req, res) => {
       },
     },
   ]);
+  const videos = await Like.aggregatePaginate(likeVideos, options);
+  console.log(videos);
   return res
     .status(200)
-    .json(new ApiResponce(200, likeVideos, "like videos fetch successfully"));
+    .json(new ApiResponce(200, videos, "like videos fetch successfully"));
 });
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;

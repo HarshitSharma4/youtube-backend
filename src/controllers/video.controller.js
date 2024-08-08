@@ -26,7 +26,12 @@ const deleteVideo = asyncHandler(async (req, res) => {
   const deleteThumbnail = await deleteOnCloudinary(video.thumbnail);
   if (!deleteThumbnail) console.log(400, "thumbnail delete failed");
   const deleteInDatabase = await Video.findByIdAndDelete(videoId);
-  console.log(deleteInDatabase);
+  const deleteLikeVideo = await Like.deleteMany({
+    video: new mongoose.Types.ObjectId(videoId),
+  });
+  const deleteComments = await Comment.deleteMany({
+    video: new mongoose.Types.ObjectId(videoId),
+  });
   return res
     .status(200)
     .json(new ApiResponce(200, {}, "video deleted successfully"));
@@ -90,8 +95,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
     throw new ApiError(500, "No videos found");
   }
   return res
-  .status(200)
-  .json(new ApiResponce(200, videos, "videos fetched Successfully"));
+    .status(200)
+    .json(new ApiResponce(200, videos, "videos fetched Successfully"));
 });
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
@@ -291,8 +296,7 @@ const updateThumbnail = asyncHandler(async (req, res) => {
   if (!thumbnailLocalPath) throw new ApiError(401, "Thumbnail file is missing");
 
   const isVideo = await checkVideoAuth(videoId, req.user._id);
- 
- 
+
   const delailsUpdated = await Video.findByIdAndUpdate(
     videoId,
     {
