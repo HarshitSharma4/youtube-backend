@@ -20,9 +20,9 @@ app.on("error", (error) => {
 // app.get("*",(req,res)=>{
 //   res.sendFile(path.join(__dirname,"../public/dist/index.html")) 
 // });
-// app.listen(process.env.PORT, () => {
-//   console.log(`App is listen on port${process.env.PORT}`);
-// });
+app.listen(process.env.PORT, () => {
+  console.log(`App is listen on port${process.env.PORT}`);
+});
 /*
 import {DB_NAME} from "./constant.js";
 first approach for database connection
