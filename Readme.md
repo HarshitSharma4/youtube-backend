@@ -64,3 +64,44 @@ class UserDetails extends Model
     protected $fillable = ['name', 'address', 'phone_number', 'age', 'role', 'description'];
     public $timestamps = false;
 }
+
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\UserDetails; // Correct Model Name
+
+class UserController extends Controller
+{
+    public function index()
+    {
+        $userDetails = UserDetails::all(); // Correct Usage
+        return response()->json(['message' => 'GET method', 'user_details' => $userDetails]);
+    }
+
+    public function store(Request $request)
+    {
+        // dd($request->all());
+        $userDetails = UserDetails::create($request->all()); 
+        return response()->json(['message' => 'POST method', 'user_details' => $userDetails]);
+    }
+
+    public function show($id)
+    {
+        $userDetails = UserDetails::find($id); // Correct Usage
+        return response()->json(['message' => 'GET method with id ' . $id, 'user_details' => $userDetails]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        UserDetails::find($id)->update($request->all()); // Correct Usage
+        return response()->json(['message' => 'PUT method with id ' . $id, 'user_details' => UserDetails::find($id)]);
+    }
+
+    public function destroy($id)
+    {
+        return response()->json(['message' => 'DELETE method with id ' . $id, 'user_details' => UserDetails::find($id)->delete()]);
+    }
+}
