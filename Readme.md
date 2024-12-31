@@ -50,3 +50,17 @@ return new class extends Migration
         Schema::dropIfExists('user_details');
     }
 };
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class UserDetails extends Model
+{
+    protected $table = 'user_details';
+    protected $fillable = ['name', 'address', 'phone_number', 'age', 'role', 'description'];
+    public $timestamps = false;
+}
